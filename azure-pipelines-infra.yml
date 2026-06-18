@@ -8,7 +8,7 @@ variables:
   AZURE_SUBSCRIPTION: 'Azure-Subscription-ServiceConnection'
   # Optional values you can override in pipeline variables
   PREFIX: 'sample'
-  LOCATION: 'eastus'
+  LOCATION: 'Central India'
 
 stages:
 - stage: TerraformApply
