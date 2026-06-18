@@ -8,7 +8,7 @@ trigger:
 
 variables:
   # Set this to an Azure Resource Manager service connection name in Azure DevOps
-  AZURE_SUBSCRIPTION: 'Azure-Subscription-ServiceConnection'
+  AZURE_SUBSCRIPTION: 'az-conn'
   # Optional values you can override in pipeline variables
   PREFIX: 'sample'
   LOCATION: 'Central India'
