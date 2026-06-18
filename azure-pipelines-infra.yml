@@ -12,6 +12,7 @@ variables:
   # Optional values you can override in pipeline variables
   PREFIX: 'sample'
   LOCATION: 'Central India'
+  SSH_PUBLIC_KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDkD0TQP6XOEyhrvCj/ud22axFnlQBoELu/0BAi72UZJ ganeshaz962@outlook.com'
 
 stages:
 - stage: TerraformApply
