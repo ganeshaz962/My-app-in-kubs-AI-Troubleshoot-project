@@ -1,0 +1,78 @@
+# Azure DevOps pipeline for building Docker images, pushing to ACR, and deploying to AKS
+
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  # Set these in pipeline variables or library in Azure DevOps
+  ACR_SERVICE_CONNECTION: 'ACR-ServiceConnection' # Azure DevOps service connection for the ACR (type: Docker registry or Azure Container Registry)
+  AZURE_SUBSCRIPTION: 'Azure-Subscription-ServiceConnection' # Azure Resource Manager service connection name
+  ACR_LOGIN_SERVER: 'myregistry.azurecr.io' # e.g. myregistry.azurecr.io
+  AKS_RESOURCE_GROUP: 'my-aks-rg'
+  AKS_CLUSTER_NAME: 'my-aks-cluster'
+  IMAGE_TAG: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build and push images
+  jobs:
+  - job: BuildPush
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: Build and push service-a
+      inputs:
+        containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+        repository: 'service-a'
+        command: 'buildAndPush'
+        Dockerfile: 'service-a/Dockerfile'
+        tags: |
+          $(IMAGE_TAG)
+        buildContext: 'service-a'
+
+    - task: Docker@2
+      displayName: Build and push service-b
+      inputs:
+        containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+        repository: 'service-b'
+        command: 'buildAndPush'
+        Dockerfile: 'service-b/Dockerfile'
+        tags: |
+          $(IMAGE_TAG)
+        buildContext: 'service-b'
+
+- stage: Deploy
+  displayName: Deploy to AKS
+  dependsOn: Build
+  jobs:
+  - deployment: DeployToAKS
+    environment: 'aks'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            displayName: 'Azure CLI - get AKS credentials'
+            inputs:
+              azureSubscription: '$(AZURE_SUBSCRIPTION)'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) --name $(AKS_CLUSTER_NAME) --overwrite-existing
+
+          - script: |
+              set -e
+              # Replace placeholders in k8s manifests with actual image names
+              sed "s|REPLACE_WITH_IMAGE_SERVICE_A|$(ACR_LOGIN_SERVER)/service-a:$(IMAGE_TAG)|g" k8s/service-a-deployment.yaml > k8s/service-a-deployment.tmp.yaml
+              sed "s|REPLACE_WITH_IMAGE_SERVICE_B|$(ACR_LOGIN_SERVER)/service-b:$(IMAGE_TAG)|g" k8s/service-b-deployment.yaml > k8s/service-b-deployment.tmp.yaml
+              kubectl apply -f k8s/namespace.yaml
+              kubectl apply -f k8s/service-a-deployment.tmp.yaml
+              kubectl apply -f k8s/service-a-service.yaml
+              kubectl apply -f k8s/service-b-deployment.tmp.yaml
+              kubectl apply -f k8s/service-b-service.yaml
+            displayName: 'kubectl apply manifests'
